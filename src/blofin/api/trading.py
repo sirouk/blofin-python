@@ -3,21 +3,26 @@ from ..utils import send_request, filter_none_params
 from ..constants import (
     FUTURES_ACCOUNT_BALANCE_ENDPOINT,
     ACCOUNT_POSITIONS_ENDPOINT,
+    ACCOUNT_POSITIONS_ENDPOINT_CT,
     ACCOUNT_MARGIN_MODE_ENDPOINT,
     ACCOUNT_SET_MARGIN_MODE_ENDPOINT,
     ACCOUNT_POSITION_MODE_ENDPOINT,
     ACCOUNT_SET_POSITION_MODE_ENDPOINT,
     ACCOUNT_BATCH_LEVERAGE_INFO_ENDPOINT,
     ACCOUNT_SET_LEVERAGE_ENDPOINT,
+    ACCOUNT_SET_LEVERAGE_ENDPOINT_CT,
     TRADE_ORDER_ENDPOINT,
+    TRADE_ORDER_ENDPOINT_CT,
     TRADE_BATCH_ORDERS_ENDPOINT,
     TRADE_ORDER_TPSL_ENDPOINT,
     TRADE_CANCEL_ORDER_ENDPOINT,
     TRADE_CANCEL_BATCH_ORDERS_ENDPOINT,
     TRADE_CANCEL_TPSL_ENDPOINT,
     TRADE_ORDERS_PENDING_ENDPOINT,
+    TRADE_ORDERS_PENDING_ENDPOINT_CT,
     TRADE_ORDERS_TPSL_PENDING_ENDPOINT,
     TRADE_CLOSE_POSITION_ENDPOINT,
+    TRADE_CLOSE_POSITION_ENDPOINT_CT,
     TRADE_ORDERS_HISTORY_ENDPOINT,
     TRADE_ORDERS_TPSL_HISTORY_ENDPOINT,
     TRADE_FILLS_HISTORY_ENDPOINT,
@@ -49,6 +54,10 @@ class TradingAPI:
     def get_positions(self, inst_id: Optional[str] = None):
         params = {'instId': inst_id} if inst_id else {}
         return send_request('GET', ACCOUNT_POSITIONS_ENDPOINT, self.client.auth, params=params, authenticate=True)
+
+    def get_positions_ct(self, inst_id: Optional[str] = None):
+        params = {'instId': inst_id} if inst_id else {}
+        return send_request('GET', ACCOUNT_POSITIONS_ENDPOINT_CT, self.client.auth, params=params, authenticate=True)
 
     def get_margin_mode(self):
         return send_request('GET', ACCOUNT_MARGIN_MODE_ENDPOINT, self.client.auth, authenticate=True)
@@ -88,6 +97,18 @@ class TradingAPI:
             data['positionSide'] = position_side
         return send_request('POST', ACCOUNT_SET_LEVERAGE_ENDPOINT, self.client.auth, data=data, authenticate=True)
 
+    def set_leverage_ct(self, inst_id: str, margin_mode: str, leverage: int, position_side: Optional[str] = None):
+        if margin_mode not in MARGIN_MODES:
+            raise BloFinParameterException(f"Invalid margin_mode. Must be one of: {', '.join(MARGIN_MODES)}")
+        data = {
+            'instId': inst_id,
+            'marginMode': margin_mode,
+            'leverage': leverage
+        }
+        if position_side:
+            data['positionSide'] = position_side
+        return send_request('POST', ACCOUNT_SET_LEVERAGE_ENDPOINT_CT, self.client.auth, data=data, authenticate=True)
+
     def place_order(self, inst_id: str, margin_mode: str, position_side: str, side: str, order_type: str, price: float, size: float, **kwargs):
         if margin_mode not in MARGIN_MODES:
             raise BloFinParameterException(f"Invalid margin_mode. Must be one of: {', '.join(MARGIN_MODES)}")
@@ -109,6 +130,24 @@ class TradingAPI:
             **kwargs
         }
         return send_request('POST', TRADE_ORDER_ENDPOINT, self.client.auth, data=data, authenticate=True)
+
+    def place_order_ct(self, inst_id: str, margin_mode: str, position_side: str, side: str, order_type: str, price: float, size: float, **kwargs):
+        if margin_mode not in MARGIN_MODES:
+            raise BloFinParameterException(f"Invalid margin_mode. Must be one of: {', '.join(MARGIN_MODES)}")
+        if position_side not in POSITION_SIDES:
+            raise BloFinParameterException(f"Invalid position_side. Must be one of: {', '.join(POSITION_SIDES)}")
+        
+        data = {
+            'instId': inst_id,
+            'marginMode': margin_mode,
+            'positionSide': position_side,
+            'side': side,
+            'orderType': order_type,
+            'price': price, 
+            'size': size,
+            **kwargs
+        }
+        return send_request('POST', TRADE_ORDER_ENDPOINT_CT, self.client.auth, data=data, authenticate=True)
 
     def place_multiple_orders(self, orders: List[dict]):
         return send_request('POST', TRADE_BATCH_ORDERS_ENDPOINT, self.client.auth, data=orders, authenticate=True)
@@ -159,6 +198,15 @@ class TradingAPI:
         params = filter_none_params(instId=inst_id, orderType=order_type, state=state, after=after, before=before, limit=limit)
         return send_request('GET', TRADE_ORDERS_PENDING_ENDPOINT, self.client.auth, params=params, authenticate=True)
 
+    def get_active_orders_ct(self, inst_id: Optional[str] = None, order_type: Optional[str] = None, state: Optional[str] = None, after: Optional[str] = None, before: Optional[str] = None, limit: Optional[int] = None):
+        if order_type and order_type not in ORDER_TYPES:
+            raise BloFinParameterException(f"Invalid order_type. Must be one of: {', '.join(ORDER_TYPES)}")
+        if state and state not in ORDER_STATES:
+            raise BloFinParameterException(f"Invalid state. Must be one of: {', '.join(ORDER_STATES)}")
+        
+        params = filter_none_params(instId=inst_id, orderType=order_type, state=state, after=after, before=before, limit=limit)
+        return send_request('GET', TRADE_ORDERS_PENDING_ENDPOINT_CT, self.client.auth, params=params, authenticate=True)
+        
     def get_active_tpsl_orders(self, inst_id: Optional[str] = None, tpsl_id: Optional[str] = None, client_order_id: Optional[str] = None, after: Optional[str] = None, before: Optional[str] = None, limit: Optional[int] = None):
         params = filter_none_params(instId=inst_id, tpslId=tpsl_id, clientOrderId=client_order_id, after=after, before=before, limit=limit)
         return send_request('GET', TRADE_ORDERS_TPSL_PENDING_ENDPOINT, self.client.auth, params=params, authenticate=True)
@@ -178,6 +226,25 @@ class TradingAPI:
             data['clientOrderId'] = client_order_id
         return send_request('POST', TRADE_CLOSE_POSITION_ENDPOINT, self.client.auth, data=data, authenticate=True)
 
+    def close_positions_ct(self, inst_id: str, margin_mode: str, position_side: str, client_order_id: Optional[str] = None, close_type: str = "pnl", size: Optional[float] = None):
+        if margin_mode not in MARGIN_MODES:
+            raise BloFinParameterException(f"Invalid margin_mode. Must be one of: {', '.join(MARGIN_MODES)}")
+        if position_side not in POSITION_SIDES:
+            raise BloFinParameterException(f"Invalid position_side. Must be one of: {', '.join(POSITION_SIDES)}")
+        
+        data = {
+            'instId': inst_id,
+            'marginMode': margin_mode,
+            'positionSide': position_side,
+            'closeType': close_type
+        }
+        if client_order_id:
+            data['clientOrderId'] = client_order_id
+        if size:
+            data['size'] = size
+        
+        return send_request('POST', TRADE_CLOSE_POSITION_ENDPOINT_CT, self.client.auth, data=data, authenticate=True)
+    
     def get_order_history(self, inst_id: Optional[str] = None, order_type: Optional[str] = None, state: Optional[str] = None, after: Optional[str] = None, before: Optional[str] = None, begin: Optional[str] = None, end: Optional[str] = None, limit: Optional[int] = None):
         if order_type and order_type not in ORDER_TYPES:
             raise BloFinParameterException(f"Invalid order_type. Must be one of: {', '.join(ORDER_TYPES)}")
